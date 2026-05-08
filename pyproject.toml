@@ -1,0 +1,22 @@
+[project]
+name = "cogsci-cr"
+version = "0.1.0"
+description = "Camera-ready CogSci 2026 subset: stipulated-value model + 3 experiments"
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [
+    {name = "Alicia Chen", email = "aliciach@mit.edu"},
+]
+license = {file = "LICENSE"}
+dependencies = [
+    "numpy>=2.3.0",
+    "scipy>=1.16.0",
+    "pandas>=2.3.0",
+    "jax>=0.7.2",
+    "jaxlib>=0.7.2",
+    "optax>=0.2.6",
+    "memo-lang>=1.2.4",
+]
+
+[tool.uv]
+package = false

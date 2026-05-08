@@ -1,0 +1,4 @@
+model,experiment,alpha_observer,sse,mse,n_params
+full,food_inv_intimacy_desire_alt,2.2663767337799072,95.40655517578125,0.05230622542531867,1
+discomfort_only,food_inv_intimacy_desire_alt,2.2838051319122314,96.939697265625,0.05314676385176809,1
+base,food_inv_intimacy_desire_alt,0.009999999776482582,150.5793914794922,0.08255449094270405,1

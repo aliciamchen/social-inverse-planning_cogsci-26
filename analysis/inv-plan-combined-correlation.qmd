@@ -1,0 +1,233 @@
+---
+title: Combined alt-shown inverse planning correlation (intimacy + desire)
+author: Alicia Chen
+date: today
+format:
+  html:
+    toc: true
+    code-fold: true
+    df-print: paged
+knitr:
+  opts_chunk:
+    dev: "ragg_png"
+execute:
+  warning: false
+---
+
+```{r setup}
+source(here::here("analysis", "utils.R"))
+setup_analysis()
+library(ggnewscale)
+
+INTIMACY_INFERENCE_CONDITIONS <- c("Low desire", "High desire")
+DESIRE_INFERENCE_CONDITIONS <- c("Intimacy: 0", "Intimacy: 50", "Intimacy: 75", "Intimacy: 100")
+
+DESIRE_INFERENCE_COLORS <- INTIMACY_COLORS
+names(DESIRE_INFERENCE_COLORS) <- paste0("Intimacy: ", names(INTIMACY_COLORS))
+```
+
+This notebook aggregates model-human correlations across both alt-shown inverse planning experiments:
+
+- **`food_inv_intimacy_desire_alt`**: Intimacy inference (infer relationship closeness from observed action)
+- **`food_inv_desire_intimacy_alt`**: Desire inference (infer motivation from observed action)
+
+## Load `food_inv_intimacy_desire_alt` (intimacy inference) data
+
+### Human data
+
+```{r}
+df_intimacy <- read_csv(here("data", "food_inv_intimacy_desire_alt", "main_trials_long.csv")) |>
+  mutate(
+    action = str_replace(action_condition, "action_", ""),
+    motivation = factor(motivation, levels = c("low", "high"), labels = MOTIVATION_LEVELS),
+    stage = factor(stage, levels = c("prior", "posterior"))
+  ) |>
+  group_by(subject_id, scenario_label) |>
+  mutate(
+    belief_update = ifelse(
+      stage == "posterior",
+      intimacy_rating[stage == "posterior"] - intimacy_rating[stage == "prior"],
+      NA
+    )
+  ) |>
+  ungroup()
+
+df_intimacy_summary <- df_intimacy |>
+  filter(stage == "posterior") |>
+  group_by(motivation, action) |>
+  tidyboot_mean(belief_update) |>
+  rename(human_belief_update = empirical_stat)
+```
+
+### Model predictions
+
+```{r}
+df_model_intimacy <- read_csv(here("model", "outputs", "food_inv_intimacy_desire_alt", "cv_preds_summary.csv")) |>
+  rename(motivation = reward_condition) |>
+  mutate(
+    action = as.character(action),
+    motivation = factor(motivation, levels = c("low", "high"), labels = MOTIVATION_LEVELS),
+    model_belief_update = expected_intimacy - 50,
+    model = relabel_model(model)
+  ) |>
+  filter(!is.na(model)) |>
+  group_by(motivation, action, model) |>
+  summarize(model_belief_update = mean(model_belief_update), .groups = "drop")
+```
+
+## Load `food_inv_desire_intimacy_alt` (desire inference) data
+
+### Human data
+
+```{r}
+df_desire <- read_csv(here("data", "food_inv_desire_intimacy_alt", "main_trials_long.csv")) |>
+  mutate(
+    action = str_replace(action_condition, "action_", ""),
+    intimacy = factor(intimacy),
+    p_high_reward = response / 100,
+    stage = factor(stage, levels = c("prior", "posterior"))
+  ) |>
+  group_by(subject_id, scenario_label) |>
+  mutate(
+    belief_update = ifelse(
+      stage == "posterior",
+      p_high_reward[stage == "posterior"] - p_high_reward[stage == "prior"],
+      NA
+    )
+  ) |>
+  ungroup()
+
+df_desire_summary <- df_desire |>
+  filter(stage == "posterior") |>
+  group_by(intimacy, action) |>
+  tidyboot_mean(belief_update) |>
+  rename(human_belief_update = empirical_stat)
+```
+
+### Model predictions
+
+```{r}
+df_model_desire <- read_csv(here("model", "outputs", "food_inv_desire_intimacy_alt", "cv_preds_summary.csv")) |>
+  rename(intimacy = intimacy_condition) |>
+  mutate(
+    action = as.character(action),
+    intimacy = factor(intimacy),
+    model_belief_update = (p_high_reward / 100) - 0.5,
+    model = relabel_model(model)
+  ) |>
+  filter(!is.na(model)) |>
+  group_by(intimacy, action, model) |>
+  summarize(model_belief_update = mean(model_belief_update), .groups = "drop")
+```
+
+## Combine and rescale
+
+We rescale the intimacy-inference belief updates by dividing by 100 to put both experiments on a -1 to 1 scale:
+
+- Intimacy inference: intimacy ratings (0-100), so belief updates are on ~-50 to +50 scale → ÷100 gives -0.5 to +0.5
+- Desire inference: probabilities (0-1), so belief updates are already on -0.5 to +0.5 scale
+
+```{r}
+df_corr_intimacy <- df_intimacy_summary |>
+  left_join(df_model_intimacy, by = c("motivation", "action")) |>
+  mutate(
+    experiment = "Intimacy inference",
+    human_belief_update = human_belief_update / 100,
+    ci_lower = ci_lower / 100,
+    ci_upper = ci_upper / 100,
+    model_belief_update = model_belief_update / 100
+  )
+
+df_corr_desire <- df_desire_summary |>
+  left_join(df_model_desire, by = c("intimacy", "action")) |>
+  mutate(experiment = "Desire inference")
+
+df_combined <- bind_rows(
+  df_corr_intimacy |>
+    mutate(condition = as.character(motivation)) |>
+    select(action, model, experiment, condition, human_belief_update, ci_lower, ci_upper, model_belief_update),
+  df_corr_desire |>
+    mutate(condition = paste0("Intimacy: ", intimacy)) |>
+    select(action, model, experiment, condition, human_belief_update, ci_lower, ci_upper, model_belief_update)
+) |>
+  mutate(
+    model = factor(model, levels = c("Base model", "Discomfort-only", "Full model")),
+    action = factor(action),
+    condition = factor(condition, levels = c(
+      "Low desire", "High desire",
+      "Intimacy: 0", "Intimacy: 50", "Intimacy: 75", "Intimacy: 100"
+    ))
+  )
+```
+
+## Compute correlations
+
+```{r}
+correlations_combined <- format_correlation_labels(
+  df_combined, model_belief_update, human_belief_update, group_vars = "model"
+)
+```
+
+## Aggregated correlation plot
+
+```{r}
+#| fig-width: 11
+#| fig-asp: 0.4
+
+df_plot <- df_combined
+
+ggplot(df_plot, aes(x = model_belief_update, y = human_belief_update, shape = action)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "lightgray") +
+  geom_errorbar(
+    data = \(d) filter(d, condition %in% INTIMACY_INFERENCE_CONDITIONS),
+    aes(ymin = ci_lower, ymax = ci_upper, color = condition), width = 0.02
+  ) +
+  geom_point(
+    data = \(d) filter(d, condition %in% INTIMACY_INFERENCE_CONDITIONS),
+    aes(color = condition), size = 3, alpha = PLOT_ALPHA
+  ) +
+  scale_color_manual(name = "Intimacy inference", values = MOTIVATION_COLORS, guide = guide_legend(order = 2)) +
+  new_scale_color() +
+  geom_errorbar(
+    data = \(d) filter(d, condition %in% DESIRE_INFERENCE_CONDITIONS),
+    aes(ymin = ci_lower, ymax = ci_upper, color = condition), width = 0.02
+  ) +
+  geom_point(
+    data = \(d) filter(d, condition %in% DESIRE_INFERENCE_CONDITIONS),
+    aes(color = condition), size = 3, alpha = PLOT_ALPHA
+  ) +
+  scale_color_manual(
+    name = "Desire inference",
+    values = DESIRE_INFERENCE_COLORS,
+    labels = \(x) gsub("Intimacy: (\\d+)", "\\1 intimacy", x),
+    guide = guide_legend(order = 3)
+  ) +
+  geom_label(
+    data = correlations_combined,
+    aes(x = -Inf, y = Inf, label = label),
+    inherit.aes = FALSE, hjust = -0.08, vjust = 1.5, size = 5,
+    fill = "white", alpha = 0.5, label.size = 0
+  ) +
+  scale_shape_manual(values = c(16, 17, 15, 18), guide = guide_legend(order = 1)) +
+  labs(x = "Model belief update", y = "Human belief update", shape = "Action") +
+  theme(
+    legend.position = "right",
+    legend.spacing.y = unit(0, "lines"),
+  ) +
+  facet_wrap(~model, nrow = 1) +
+  coord_fixed_symmetric(df_plot$model_belief_update, df_plot$human_belief_update)
+
+ggsave(here("figures", "inv_plan_combined_correlation_main.pdf"), device = cairo_pdf)
+```
+
+## Summary table
+
+```{r}
+correlations_combined |>
+  select(model, r, ci_lower, ci_upper) |>
+  knitr::kable(
+    digits = 3,
+    caption = "Aggregated model-human correlations (intimacy + desire inference, alt-shown)",
+    col.names = c("Model", "r", "CI lower", "CI upper")
+  )
+```

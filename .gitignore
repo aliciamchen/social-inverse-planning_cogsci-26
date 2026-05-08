@@ -1,0 +1,25 @@
+.DS_Store
+.ipynb_checkpoints
+.Rproj.user
+__pycache__/
+*.Rhistory
+.env
+/.quarto/
+**/*.quarto_ipynb
+_output
+.venv/
+raw_data/
+*.Rproj
+
+# Quarto rendered HTML output (sits next to the source qmds)
+analysis/*.html
+analysis/*_files/
+
+# Figures are regenerated from qmds
+figures/
+
+# Manuscript
+cogsci-2026
+
+
+.positai
