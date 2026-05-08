@@ -106,32 +106,6 @@ def load_fitted_params(filepath: str = None) -> dict:
     return params
 
 
-def load_fitted_alpha_observer(filepath=None) -> dict:
-    """Load fitted alpha_observer values from inverse planning fit_results.csv.
-
-    `filepath` is a single path (single-experiment file). If None, reads from
-    both inverse experiment dirs and merges (intimacy + reward).
-
-    Returns dict with (model, experiment) -> alpha_observer. Defaults to 1.0 if NaN.
-    """
-    if filepath is not None:
-        paths = [Path(filepath)]
-    else:
-        outputs_root = get_project_root() / "model" / "outputs"
-        paths = [
-            outputs_root / "food_inv_intimacy_desire_alt" / "fit_results.csv",
-            outputs_root / "food_inv_desire_intimacy_alt" / "fit_results.csv",
-        ]
-    alpha_obs = {}
-    for path in paths:
-        df = pd.read_csv(path)
-        for _, row in df.iterrows():
-            key = (row["model"], row["experiment"])
-            alpha_val = row["alpha_observer"]
-            alpha_obs[key] = alpha_val if pd.notna(alpha_val) else 1.0
-    return alpha_obs
-
-
 # ==============================================================================
 # Data loaders (one per experiment)
 # ==============================================================================
@@ -337,33 +311,6 @@ def fit_reward_observer(
         table_kwargs=table_kwargs,
         **kwargs,
     )
-
-
-# ==============================================================================
-# Prediction grid helpers
-# ==============================================================================
-
-
-def compute_expected_intimacy(df: pd.DataFrame) -> pd.DataFrame:
-    """Expected intimacy from posterior over the 0-100 grid."""
-    df = df.copy()
-    df["intimacy_scaled"] = df["intimacy"] * 100
-    summary = df.groupby(
-        ["scenario_label", "action", "reward_condition", "model"],
-        dropna=False,
-    ).apply(
-        lambda g: pd.Series({"expected_intimacy": (g["intimacy_scaled"] * g["density"]).sum()})
-    ).reset_index()
-    return summary
-
-
-def compute_p_high_reward(df: pd.DataFrame) -> pd.DataFrame:
-    """Extract P(high reward) for desire-inference experiments."""
-    df_high = df[df["reward_condition"] == "high"].copy()
-    df_high = df_high.rename(columns={"density": "p_high_reward"})
-    df_high["p_high_reward"] = df_high["p_high_reward"] * 100
-    df_high = df_high.drop(columns=["reward_condition"])
-    return df_high
 
 
 # ==============================================================================
