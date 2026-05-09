@@ -14,7 +14,7 @@ Internal variable names in the inverse-planning experiments use "reward" (e.g. `
 
 ## Anonymization
 
-The raw jsPsych JSON output (collected via Prolific) is not included in this repo. Prolific Participant IDs in the raw data were deterministically mapped to UUID5 values (namespace `6ba7b810-9dad-11d1-80b4-00c04fd430c8`) before being written to the processed CSVs. The mapping was never persisted to disk. The CSVs in this repo only ever contain the anonymized UUIDs.
+The raw jsPsych JSON output (collected via Prolific) is not included in this repo. Prolific Participant IDs in the raw data were deterministically mapped to UUID5 values (namespace `6ba7b810-9dad-11d1-80b4-00c04fd430c8`) before being written to the processed CSVs. The CSVs in this repo only ever contain the anonymized UUIDs.
 
 ## Exclusion criteria
 
