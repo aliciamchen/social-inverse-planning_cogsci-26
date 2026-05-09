@@ -17,6 +17,7 @@ The three experiments included here are:
 ```
 cogsci-cr/
 ├── data/                       # anonymized participant data, with codebook in data/README.md
+├── experiments/                # jsPsych code for the three experiments
 ├── model/
 │   ├── stipulated_tables.py        # action-only V, access, and effort tables
 │   ├── tables.py                   # scenario labels, enums, and table accessors
